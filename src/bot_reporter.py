@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from pathlib import Path
 from datetime import datetime
@@ -8,64 +9,68 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def load_json(path):
     try:
-        import json
         with Path(path).open("r", encoding="utf-8") as f:
-            return json.load(f), None
+            return json.load(f)
     except FileNotFoundError:
-        return None, f"Fehler: Datei nicht gefunden: {path}"
+        print(f"Fehler: Datei nicht gefunden: {path}")
+        return None
     except Exception as e:
-        return None, f"Fehler beim Lesen von {path}: {e}"
+        print(f"Fehler beim Lesen von {path}: {e}")
+        return None
 
 def send_telegram_message(text):
     if not TOKEN or not CHAT_ID:
-        raise RuntimeError("TELEGRAM_TOKEN oder TELEGRAM_CHAT_ID fehlt")
+        print("Fehler: TELEGRAM_TOKEN oder TELEGRAM_CHAT_ID fehlt")
+        return False
 
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    resp = requests.post(
-        url,
-        data={
-            "chat_id": CHAT_ID,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        },
-        timeout=20,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = requests.post(
+            url,
+            data={
+                "chat_id": CHAT_ID,
+                "text": text,
+                "disable_web_page_preview": True,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        print(f"Fehler beim Senden an Telegram: {e}")
+        return False
 
 def build_message():
-    data, error = load_json("data/raw_pegel.json")
+    data = load_json("data/raw_pegel.json")
+    if data is None:
+        return None
 
-    if error:
-        return (
-            "Bot-Report\n\n"
-            f"{error}\n"
-            "Hinweis: Der Workflow hat die Datei vermutlich nicht erzeugt."
-        )
+    # Falls du hier weitere Pflichtdaten prüfst:
+    if not isinstance(data, dict) or not data:
+        print("Fehler: Unerwartetes oder leeres Datenformat")
+        return None
 
     lines = []
-    lines.append("Bot-Report")
+    lines.append("Angel-Check")
     lines.append("")
     lines.append(f"Zeit: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
     lines.append("")
-    lines.append("Pegel-Daten geladen.")
-
-    if isinstance(data, dict):
-        lines.append(f"Einträge: {len(data)}")
-    else:
-        lines.append("Warnung: Unerwartetes Datenformat.")
+    lines.append(f"Einträge: {len(data)}")
 
     return "\n".join(lines)
 
 def main():
-    try:
-        msg = build_message()
-        send_telegram_message(msg)
-        print("Telegram-Nachricht gesendet.")
-    except Exception as e:
-        print(f"Fehler: {e}")
-        raise
+    msg = build_message()
+    if msg is None:
+        print("Kein Post, weil der Build fehlgeschlagen ist.")
+        return
+
+    ok = send_telegram_message(msg)
+    if not ok:
+        print("Kein Post, weil Telegram-Versand fehlgeschlagen ist.")
+        return
+
+    print("Telegram-Nachricht erfolgreich gesendet.")
 
 if __name__ == "__main__":
     main()
