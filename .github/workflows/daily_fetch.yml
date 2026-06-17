@@ -32,3 +32,11 @@ jobs:
           git add data/
           git commit -m "Update Pegeldaten" || echo "Keine Änderungen"
           git push
+      - name: Fetch Data
+        run: python src/data_fetcher.py
+        
+      - name: Send Telegram Report
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python src/bot_reporter.py
