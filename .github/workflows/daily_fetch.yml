@@ -2,14 +2,14 @@ name: Tägliches Pegel-Update
 
 on:
   schedule:
-    - cron: '0 16 * * *' # Läuft täglich um 16:00 Uhr
-  workflow_dispatch:      # Ermöglicht manuelles Starten über den Button
+    - cron: '0 16 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # WICHTIG: Erlaubt dem Bot, Dateien ins Repo zu schreiben
+      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -32,9 +32,7 @@ jobs:
           git add data/
           git commit -m "Update Pegeldaten" || echo "Keine Änderungen"
           git push
-      - name: Fetch Data
-        run: python src/data_fetcher.py
-        
+
       - name: Send Telegram Report
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
